@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Student Attendance Monitoring</title>
+    <style>
+        :root {
+            --bg: #f4f7fb;
+            --card: #ffffff;
+            --accent: #2b6ef6;
+            --muted: #6b7280;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            font-family: Inter, system-ui, Segoe UI, Arial;
+            background: var(--bg);
+            color: #0f172a;
+            padding: 28px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto
+        }
+
+        header {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 20px
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+        }
+
+        .top-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        select {
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #e6e9ef;
+            outline: none;
+        }
+
+        button {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button.ghost {
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid #dbe5ff
+        }
+
+        .students-list {
+            margin-top: 12px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap
+        }
+
+        .student {
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #fbfdff;
+            border: 1px solid #eef3ff;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px
+        }
+
+        th,
+        td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid #eef2f7;
+            font-size: 14px
+        }
+
+        th {
+            background: #fbfdff;
+            font-weight: 600
+        }
+
+        .status-btn {
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid #e6e9ef;
+            cursor: pointer;
+            background: #fff
+        }
+
+        .present {
+            background: #e6f9ed;
+            border-color: #38b000;
+            color: #166534
+        }
+
+        .absent {
+            background: #ffeef0;
+            border-color: #ff6b6b;
+            color: #7f1d1d
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 8px;
+            flex-wrap: wrap
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 13px
+        }
+
+        @media (max-width:640px) {
+            .top-row {
+                flex-direction: column;
+                align-items: stretch
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>Online Student Attendance Monitoring</h1>
+                <div class="muted">Quick prototype — stores data locally in your browser.</div>
+            </div>
+        </header>
+
+        <div class="card">
+            <div class="top-row">
+                <label>
+                    Date
+                    <input type="date" id="att-date" />
+                </label>
+
+                <label>
+                    Add student
+                    <input type="text" id="new-student" placeholder="Name or ID (e.g. S101)" />
+                </label>
+                <button id="add-student">Add</button>
+
+                <div style="margin-left:auto" class="controls">
+                    <select id="filter-students">
+                        <option value="all">All students</option>
+                        <option value="present">Only Present</option>
+                        <option value="absent">Only Absent</option>
+                    </select>
+                    <button id="export" class="ghost">Export CSV</button>
+                    <button id="clear" class="ghost">Clear All</button>
+                </div>
+            </div>
+
+            <!-- students quick list -->
+            <div class="students-list" id="students-list"></div>
+
+            <!-- attendance table -->
+            <table id="attendance-table" class="card" aria-live="polite">
+                <thead>
+                    <tr>
+                        <th style="width:36%">Student</th>
+                        <th style="width:24%">Status</th>
+                        <th style="width:24%">Marked at</th>
+                        <th style="width:16%">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- rows go here -->
+                </tbody>
+            </table>
+
+            <div style="margin-top:10px" class="muted">
+                Tip: This demo keeps attendance in your browser (localStorage). Use "Export CSV" to download records.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simple attendance prototype
+        const STORAGE_KEY = 'attendance_data_v1';
+        const STUDENTS_KEY = 'student_list_v1';
+
+        // sample students (first-run)
+        const sampleStudents = [
+            { id: 'S101', name: 'Anita Kumar' },
+            { id: 'S102', name: 'Ravi Raj' },
+            { id: 'S103', name: 'Meera S.' },
+            { id: 'S104', name: 'John Paul' }
+        ];
+
+        // DOM
+        const dateInput = document.getElementById('att-date');
+        const newStudentInput = document.getElementById('new-student');
+        const addBtn = document.getElementById('add-student');
+        const studentsListEl = document.getElementById('students-list');
+        const tableBody = document.getElementById('table-body');
+        const filterSelect = document.getElementById('filter-students');
+        const exportBtn = document.getElementById('export');
+        const clearBtn = document.getElementById('clear');
+
+        // initialize date to today
+        dateInput.valueAsDate = new Date();
+
+        // helper: read/write localStorage
+        function loadJSON(key, fallback) {
+            try {
+                const raw = localStorage.getItem(key);
+                if (!raw) return fallback;
+                return JSON.parse(raw);
+            } catch { return fallback; }
+        }
+        function saveJSON(key, obj) {
+            localStorage.setItem(key, JSON.stringify(obj));
+        }
+
+        // students list management
+        function getStudents() {
+            const s = loadJSON(STUDENTS_KEY, null);
+            if (!s) { saveJSON(STUDENTS_KEY, sampleStudents); return sampleStudents.slice(); }
+            return s;
+        }
+        function addStudent(idOrName) {
+            if (!idOrName) return;
+            const students = getStudents();
+            const exists = students.find(st => st.id === idOrName || st.name.toLowerCase() === idOrName.toLowerCase());
+            // auto-generate id if name only
+            let student;
+            if (exists) return alert('Student already exists.');
+            if (idOrName.includes(' ')) {
+                // name given, auto id
+                const newId = 'S' + Math.floor(100 + Math.random() * 900);
+                student = { id: newId, name: idOrName };
+            } else {
+                student = { id: idOrName, name: idOrName };
+            }
+            students.push(student);
+            saveJSON(STUDENTS_KEY, students);
+            renderStudents();
+            newStudentInput.value = '';
+        }
+
+        // attendance records shape:
+        // { '2025-12-03': { 'S101': {status:'present', ts:163...}, ... }, ... }
+        function getAllAttendance() { return loadJSON(STORAGE_KEY, {}); }
+        function saveAllAttendance(obj) { saveJSON(STORAGE_KEY, obj); }
+
+        function markAttendance(dateISO, studentId, status) {
+            const all = getAllAttendance();
+            if (!all[dateISO]) all[dateISO] = {};
+            all[dateISO][studentId] = { status, ts: Date.now() };
+            saveAllAttendance(all);
+            renderTable();
+        }
+
+        function getAttendanceFor(dateISO) {
+            const all = getAllAttendance();
+            return all[dateISO] || {};
+        }
+
+        function formatDateISO(d) { // yyyy-mm-dd
+            const dt = new Date(d);
+            const y = dt.getFullYear();
+            const m = String(dt.getMonth() + 1).padStart(2, '0');
+            const day = String(dt.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        // UI rendering
+        function renderStudents() {
+            const students = getStudents();
+            studentsListEl.innerHTML = '';
+            const dateISO = dateInput.value;
+            const todayAtt = getAttendanceFor(dateISO);
+
+            students.forEach(s => {
+                const btnPresent = document.createElement('button');
+                btnPresent.textContent = 'P';
+                btnPresent.title = 'Mark Present';
+                btnPresent.className = 'status-btn present';
+                btnPresent.onclick = () => markAttendance(dateISO, s.id, 'present');
+
+                const btnAbsent = document.createElement('button');
+                btnAbsent.textContent = 'A';
+                btnAbsent.title = 'Mark Absent';
+                btnAbsent.className = 'status-btn absent';
+                btnAbsent.onclick = () => markAttendance(dateISO, s.id, 'absent');
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'student';
+                wrapper.innerHTML = `<strong>${s.id}</strong> &nbsp; <span class="muted">${s.name}</span>`;
+                wrapper.appendChild(btnPresent);
+                wrapper.appendChild(btnAbsent);
+                studentsListEl.appendChild(wrapper);
+            });
+
+            renderTable();
+        }
+
+        function renderTable() {
+            const students = getStudents();
+            const dateISO = dateInput.value;
+            const todayAtt = getAttendanceFor(dateISO);
+            const filter = filterSelect.value;
+            tableBody.innerHTML = '';
+
+            students.forEach(s => {
+                const rec = todayAtt[s.id];
+                const status = rec ? rec.status : 'not-marked';
+                if (filter === 'present' && status !== 'present') return;
+                if (filter === 'absent' && status !== 'absent') return;
+
+                const tr = document.createElement('tr');
+                const tdName = document.createElement('td');
+                tdName.innerHTML = `<strong>${s.id}</strong><div class="muted">${s.name}</div>`;
+
+                const tdStatus = document.createElement('td');
+                const statusSpan = document.createElement('span');
+                if (status === 'present') { statusSpan.textContent = 'Present'; statusSpan.className = 'present'; }
+                else if (status === 'absent') { statusSpan.textContent = 'Absent'; statusSpan.className = 'absent'; }
+                else { statusSpan.textContent = 'Not marked'; statusSpan.className = 'muted'; }
+                tdStatus.appendChild(statusSpan);
+
+                const tdTime = document.createElement('td');
+                tdTime.textContent = rec ? new Date(rec.ts).toLocaleTimeString() : '-';
+
+                const tdActions = document.createElement('td');
+                const pBtn = document.createElement('button');
+                pBtn.textContent = 'Set Present';
+                pBtn.className = 'status-btn present';
+                pBtn.onclick = () => markAttendance(dateISO, s.id, 'present');
+
+                const aBtn = document.createElement('button');
+                aBtn.textContent = 'Set Absent';
+                aBtn.className = 'status-btn absent';
+                aBtn.onclick = () => markAttendance(dateISO, s.id, 'absent');
+
+                const clearBtnRow = document.createElement('button');
+                clearBtnRow.textContent = 'Clear';
+                clearBtnRow.className = 'status-btn';
+                clearBtnRow.onclick = () => {
+                    const all = getAllAttendance();
+                    if (all[dateISO]) { delete all[dateISO][s.id]; saveAllAttendance(all); renderTable(); }
+                };
+
+                tdActions.appendChild(pBtn);
+                tdActions.appendChild(aBtn);
+                tdActions.appendChild(clearBtnRow);
+
+                tr.appendChild(tdName);
+                tr.appendChild(tdStatus);
+                tr.appendChild(tdTime);
+                tr.appendChild(tdActions);
+
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // CSV export
+        function exportCSV() {
+            const dateISO = dateInput.value;
+            const students = getStudents();
+            const att = getAttendanceFor(dateISO);
+            let csv = 'StudentID,Name,Status,Timestamp\n';
+            students.forEach(s => {
+                const rec = att[s.id];
+                const status = rec ? rec.status : 'not-marked';
+                const ts = rec ? new Date(rec.ts).toISOString() : '';
+                csv += `${s.id},"${s.name}",${status},${ts}\n`;
+            });
+
+            // download
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendance_${dateISO}.csv`;
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        // clear all data
+        function clearAll() {
+            if (!confirm('Clear ALL students and attendance data? This cannot be undone.')) return;
+            localStorage.removeItem(STUDENTS_KEY);
+            localStorage.removeItem(STORAGE_KEY);
+            renderStudents();
+        }
+
+        // events
+        addBtn.addEventListener('click', () => addStudent(newStudentInput.value.trim()));
+        newStudentInput.addEventListener('keydown', e => { if (e.key === 'Enter') addStudent(newStudentInput.value.trim()); });
+        dateInput.addEventListener('change', renderTable);
+        filterSelect.addEventListener('change', renderTable);
+        exportBtn.addEventListener('click', exportCSV);
+        clearBtn.addEventListener('click', clearAll);
+
+        // first render
+        renderStudents();
+    </script>
+</body>
+
+</html>
